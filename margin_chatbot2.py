@@ -489,6 +489,7 @@ llm = AzureChatOpenAI(
 if query:
     res = sql_query(query,llm)
     st.write(res)
+    ## Finish
        
     
 
