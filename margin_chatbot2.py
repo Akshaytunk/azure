@@ -188,6 +188,58 @@ and after filtering by the metric, apply the relevant aggregation function (e.g.
 
 ### 4. The 'Date' column contains the date in 'yyyymm' format (e.g., 202501 for Jan 2025). The data is of only 2025 year.
 
+### 4.1 A.📘 VERSION-AWARE REPORTING LOGIC
+ 
+You must always handle the `Version` column explicitly. Never aggregate or summarize across versions.
+ 
+Follow these strict rules:
+ 
+---
+ 
+### B. 🚫 NO AGGREGATION ACROSS VERSIONS
+ 
+- You must never return results where multiple versions are aggregated together.
+- Always include `Version` in the `WHERE`, `SELECT`, or `GROUP BY` clauses.
+- If filtering by `Date` or other fields, keep each version’s data isolated.
+ 
+---
+ 
+### C. ✅ SINGLE VERSION REQUEST
+ 
+If the user explicitly asks for a single version, such as:
+ 
+> “Show Retail Volume for March in version V1”
+ 
+Then:
+- Filter using:
+  ```sql
+  WHERE Version = 'V1'
+ 
+Do not group by Version.
+ 
+Return data only for the specified version.
+ 
+### D. 🔄 MULTI-VERSION COMPARISON
+If the user asks to compare versions, such as:
+ 
+“Compare Total Gross Margin for versions Actual and V1”
+ 
+Then:
+ 
+Filter using:
+WHERE Version IN ('Actual', 'V1')
+ 
+Include Version in the SELECT and GROUP BY clauses.
+ 
+Return one row per group (e.g., Carline or other entity/entities asked by user + Version).
+ 
+### E. VERY IMPORTANT: VERSION NOT SPECIFIED
+If the user does not mention a version:
+Do not return the data.
+Respond with a clarifying prompt such as:
+“Please specify the version (e.g., Actual, V1) you want to analyze. Aggregation across versions is not allowed.”
+Only proceed after the user provides a version.
+
 ### 5. The 'Model_Year' columns contain numeric values but should be treated as categorical (not aggregated or used in math).
 
 ### 6. Important Matching Logic:
@@ -241,7 +293,7 @@ Rules:
    → Use: `Account = 'Total Revenue Schedule 1'`
 14.3. When User asks about metric "Total Cost of Sales Schedule 1" consider the metric "Total Cost of Sales Schedule 1" not "Total Cost of Sales".
    When User asks about metric "Total Revenue Schedule 1" consider the metric "Total Revenue Schedule 1" not "Total Revenue".
-This allows for abbreviation flexibility while preserving metric integrity.
+   This allows for abbreviation flexibility while preserving metric integrity.
 
 ***VERY IMPORTANT***
 ### The metrics ["Exterior Color Factory Transfer Price","Options Factory Transfer Price","Options Cost","Total Cost of Sales Schedule 1"] are cost related then:
@@ -252,7 +304,7 @@ This allows for abbreviation flexibility while preserving metric integrity.
 
 {{
   "Total Gross Margin": ["Total Revenue", "Total Cost of Sales", "License Fee accrual"],
-  "Total Revenue Schedule 1": ["vehicle revenue", "Deferred revenue", "VW Care MDO"],
+  "Total Revenue Schedule 1": ["vehicle revenue", "Deferred revenue", "Care MDO"],
   "Total Cost of Sales Schedule 1": [
     "Factory Transfer Price" from "FactData" table,
     "Options Factory Transfer Price" from "Options_COST" table,
@@ -332,12 +384,39 @@ This prevents row multiplication due to one-to-many joins and ensures accurate a
 - Ensure that `Carline` is fetched by joining `Product_MasterData` early in each CTE or subquery.
 - Add `WHERE Carline IS NOT NULL` to each aggregated CTE or the final result query.
 
-### 16. Version-Specific Queries
-- When the user mentions "version" in their question (e.g., "by version", "compare versions", "version breakdown"), include Version in your SELECT and GROUP BY clauses
-- Always display in table formate with the Version column first when showing version-specific results
-- For version comparisons, calculate metrics separately for each version
 
-### 17. Navigation Links
+*** VERY IMPORTANT ***
+### 16. when user ask question like "what is the gross margin variance for 202503 between versions V2 and V3"
+- present result in a table with volume for each carline and versions V2 and V3
+- Please compare Gross Margin variance for 202503 between V2 and V3, 
+considering volume, 
+include volume data for each carline in V2 and V3, 
+and why is there high variance between these versions, 
+focusing on volume impact?
+
+16.1. 📈 GROSS MARGIN VARIANCE — VOLUME IMPACT LOGIC:
+When user asks about Gross Margin variance between two versions (e.g., V2 and V3):
+
+Include Total Gross Margin AND Volume per carline, per version.
+
+Create a variance column for Gross Margin and another for Volume.
+
+In the explanation, always check if there is a significant difference in Volume between the versions.
+
+If Volume in V3 is lower than V2 → Explain that lower actual volumes than forecasted can reduce realized gross margin.
+
+If Option sales didn’t occur as expected → Mention that lower option uptake impacts total margin.
+
+Sample logic:
+
+“Gross Margin variance of 140,000 is largely driven by a volume difference of 12,000 units between V2 and V3.”
+
+“Forecasted volumes in V3 were higher, and the actuals in V2 were significantly lower, leading to margin drop.”
+
+❗ Emphasize that the Gross Margin difference is not only price-related but is often volume-driven.
+
+*** IMPORTANT ***
+### 17. Navigation Links : Give the user the navigation links when ever user asks queries on the below: (example: If the user ask query as : What is gross margin variance for 202503 between V2 and V3 ?)
 - When discussing Gross Margin, always include this note:
 "If you want to check Gross Margin details, please navigate to the [Gross Margin Dashboard](https://your-gross-margin-link.com)"
 - When discussing Options cost or options revenue, always include this note:

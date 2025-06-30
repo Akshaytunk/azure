@@ -13,6 +13,13 @@ azure-storage-blob
 langchain-experimental
 azure-ai-formrecognizer
 sqlalchemy
+pillow
+datetime
+random
+PIL
+base64
+io
+os
 
 
 
